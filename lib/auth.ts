@@ -5,8 +5,7 @@ const COOKIE_NAME = "parent_session";
 const TWO_HOURS = 60 * 60 * 2;
 
 function getSecret() {
-  const secret = process.env.PARENT_JWT_SECRET;
-  if (!secret) throw new Error("PARENT_JWT_SECRET env var is not set");
+  const secret = process.env.PARENT_JWT_SECRET ?? "dev-secret-do-not-use-in-production";
   return new TextEncoder().encode(secret);
 }
 

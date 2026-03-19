@@ -22,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} antialiased bg-gray-50 min-h-screen`}>
+      <body className={`${geistSans.variable} antialiased min-h-screen`} style={{ background: "linear-gradient(145deg, #dbeafe 0%, #f0fdf4 50%, #fefce8 100%)" }}>
         <ParentAuthProvider>
           <ParentUnlockBanner />
           <main className="max-w-lg mx-auto px-4 py-6">{children}</main>

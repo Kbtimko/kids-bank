@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { createParentSession, COOKIE_NAME, TWO_HOURS } from "@/lib/auth";
@@ -24,9 +25,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "PIN required" }, { status: 400 });
   }
 
-  const hash = await getSettingDb("parent_pin_hash");
+  let hash = await getSettingDb("parent_pin_hash");
+  // No DB yet (local preview) — accept default PIN "1234"
   if (!hash) {
-    return NextResponse.json({ error: "App not configured" }, { status: 500 });
+    if (process.env.POSTGRES_URL) {
+      return NextResponse.json({ error: "App not configured" }, { status: 500 });
+    }
+    const bcrypt = await import("bcryptjs");
+    hash = await bcrypt.hash("1234", 10);
   }
 
   const valid = await bcrypt.compare(pin, hash);

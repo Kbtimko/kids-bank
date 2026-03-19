@@ -5,25 +5,32 @@ async function getChildrenWithSummaries() {
     ? `https://${process.env.VERCEL_URL}`
     : "http://localhost:3000";
 
-  const children = await fetch(`${baseUrl}/api/children`, { cache: "no-store" }).then((r) =>
-    r.json()
-  );
+  try {
+    const res = await fetch(`${baseUrl}/api/children`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const children = await res.json();
+    if (!Array.isArray(children) || children.length === 0) return [];
 
-  const summaries = await Promise.all(
-    children.map((c: { id: number }) =>
-      fetch(`${baseUrl}/api/children/${c.id}/summary`, { cache: "no-store" }).then((r) => r.json())
-    )
-  );
+    const summaries = await Promise.all(
+      children.map((c: { id: number }) =>
+        fetch(`${baseUrl}/api/children/${c.id}/summary`, { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : { balance: 0, mtd: { interest: 0, deposits: 0, withdrawals: 0 } }))
+          .catch(() => ({ balance: 0, mtd: { interest: 0, deposits: 0, withdrawals: 0 } }))
+      )
+    );
 
-  return children.map(
-    (
-      c: { id: number; name: string; display_color: string; avatar_emoji: string },
-      i: number
-    ) => ({
-      ...c,
-      ...summaries[i],
-    })
-  );
+    return children.map(
+      (
+        c: { id: number; name: string; display_color: string; avatar_emoji: string },
+        i: number
+      ) => ({
+        ...c,
+        ...summaries[i],
+      })
+    );
+  } catch {
+    return [];
+  }
 }
 
 export default async function HomePage() {

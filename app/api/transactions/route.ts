@@ -1,6 +1,10 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { isParentUnlocked } from "@/lib/auth";
+import { addTransaction } from "@/lib/mock-store";
+
+const noDb = !process.env.POSTGRES_URL;
 
 export async function POST(req: NextRequest) {
   if (!(await isParentUnlocked())) {
@@ -21,6 +25,11 @@ export async function POST(req: NextRequest) {
   }
 
   const date = transaction_date ?? new Date().toISOString().split("T")[0];
+
+  if (noDb) {
+    const tx = addTransaction(child_id, type, String(amt), description, date);
+    return NextResponse.json(tx, { status: 201 });
+  }
 
   const result = await sql`
     INSERT INTO transactions (child_id, type, amount, description, transaction_date)

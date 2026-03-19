@@ -1,6 +1,11 @@
-import { sql } from "@vercel/postgres";
+import { sql as vercelSql } from "@vercel/postgres";
 
-export { sql };
+const noDb = !process.env.POSTGRES_URL;
+
+// When no DB is configured (local preview), return empty results instead of crashing
+const mockSql = (() => Promise.resolve({ rows: [] })) as unknown as typeof vercelSql;
+
+export const sql = noDb ? mockSql : vercelSql;
 
 export type Child = {
   id: number;
