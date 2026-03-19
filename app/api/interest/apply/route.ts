@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Apply interest
-  for (const { childId, interest, name } of previews) {
+  for (const { childId, interest } of previews) {
     if (interest > 0) {
       await sql`
         INSERT INTO transactions (child_id, type, amount, description, transaction_date)
