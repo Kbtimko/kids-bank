@@ -1,40 +1,48 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { ChildCard } from "@/components/ChildCard";
 
-async function getChildrenWithSummaries() {
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
+type Child = {
+  id: number;
+  name: string;
+  display_color: string;
+  avatar_emoji: string;
+  balance: number;
+  mtd: { interest: number; deposits: number; withdrawals: number };
+};
 
-  try {
-    const res = await fetch(`${baseUrl}/api/children`, { cache: "no-store" });
-    if (!res.ok) return [];
-    const children = await res.json();
-    if (!Array.isArray(children) || children.length === 0) return [];
+export default function HomePage() {
+  const [children, setChildren] = useState<Child[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    const summaries = await Promise.all(
-      children.map((c: { id: number }) =>
-        fetch(`${baseUrl}/api/children/${c.id}/summary`, { cache: "no-store" })
-          .then((r) => (r.ok ? r.json() : { balance: 0, mtd: { interest: 0, deposits: 0, withdrawals: 0 } }))
-          .catch(() => ({ balance: 0, mtd: { interest: 0, deposits: 0, withdrawals: 0 } }))
-      )
-    );
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/children", { cache: "no-store" });
+        if (!res.ok) { setLoading(false); return; }
+        const list = await res.json();
+        if (!Array.isArray(list) || list.length === 0) { setLoading(false); return; }
 
-    return children.map(
-      (
-        c: { id: number; name: string; display_color: string; avatar_emoji: string },
-        i: number
-      ) => ({
-        ...c,
-        ...summaries[i],
-      })
-    );
-  } catch {
-    return [];
+        const summaries = await Promise.all(
+          list.map((c: { id: number }) =>
+            fetch(`/api/children/${c.id}/summary`, { cache: "no-store" })
+              .then((r) => r.ok ? r.json() : { balance: 0, mtd: { interest: 0, deposits: 0, withdrawals: 0 } })
+              .catch(() => ({ balance: 0, mtd: { interest: 0, deposits: 0, withdrawals: 0 } }))
+          )
+        );
+
+        setChildren(list.map((c: Child, i: number) => ({ ...c, ...summaries[i] })));
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-24 text-4xl">⏳</div>;
   }
-}
-
-export default async function HomePage() {
-  const children = await getChildrenWithSummaries();
 
   return (
     <div>
@@ -49,28 +57,19 @@ export default async function HomePage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {children.map(
-            (child: {
-              id: number;
-              name: string;
-              avatar_emoji: string;
-              display_color: string;
-              balance: number;
-              mtd: { interest: number; deposits: number; withdrawals: number };
-            }) => (
-              <ChildCard
-                key={child.id}
-                id={child.id}
-                name={child.name}
-                emoji={child.avatar_emoji}
-                color={child.display_color}
-                balance={child.balance}
-                mtdInterest={child.mtd.interest}
-                mtdDeposits={child.mtd.deposits}
-                mtdWithdrawals={child.mtd.withdrawals}
-              />
-            )
-          )}
+          {children.map((child) => (
+            <ChildCard
+              key={child.id}
+              id={child.id}
+              name={child.name}
+              emoji={child.avatar_emoji}
+              color={child.display_color}
+              balance={child.balance}
+              mtdInterest={child.mtd?.interest ?? 0}
+              mtdDeposits={child.mtd?.deposits ?? 0}
+              mtdWithdrawals={child.mtd?.withdrawals ?? 0}
+            />
+          ))}
         </div>
       )}
     </div>
