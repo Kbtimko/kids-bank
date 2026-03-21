@@ -1,35 +1,32 @@
 import { Pool } from "pg";
-import bcrypt from "bcryptjs";
 
 const pool = new Pool({ connectionString: process.env.POSTGRES_URL });
 
 async function seed() {
-  const existing = await pool.query(`SELECT key FROM settings WHERE key = 'parent_pin_hash'`);
+  // Seed global settings only (fed rate cache defaults)
+  const existing = await pool.query(`SELECT key FROM settings WHERE key = 'fed_rate_cache' AND family_id IS NULL`);
   if (existing.rowCount && existing.rowCount > 0) {
-    console.log("Already seeded, skipping. Use the admin panel to make changes.");
+    console.log("Already seeded, skipping.");
     await pool.end();
     process.exit(0);
   }
 
   console.log("Seeding database...");
 
-  const pinHash = await bcrypt.hash("1234", 12);
   await pool.query(
-    `INSERT INTO settings (key, value) VALUES
-      ('parent_pin_hash', $1),
-      ('interest_multiplier', '2'),
-      ('interest_floor_percent', '5'),
-      ('fed_rate_cache', '4.33'),
-      ('fed_rate_cache_date', $2)
-    ON CONFLICT (key) DO NOTHING`,
-    [pinHash, new Date().toISOString().split("T")[0]]
+    `INSERT INTO settings (family_id, key, value)
+     VALUES
+       (NULL, 'fed_rate_cache', '4.33'),
+       (NULL, 'fed_rate_cache_date', $1)
+     ON CONFLICT (family_id, key) DO NOTHING`,
+    [new Date().toISOString().split("T")[0]]
   );
-  console.log("✓ settings");
+  console.log("✓ global settings");
 
   console.log(`
 Seed complete!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Default PIN: 1234  ← CHANGE THIS in the admin panel
+Register your family at /register to get started.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   `);
   await pool.end();

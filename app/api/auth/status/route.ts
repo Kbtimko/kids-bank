@@ -1,8 +1,12 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { isParentUnlocked } from "@/lib/auth";
+import { isParentUnlocked, getFamilySession } from "@/lib/auth";
 
 export async function GET() {
-  const unlocked = await isParentUnlocked();
-  return NextResponse.json({ unlocked });
+  const [unlocked, family] = await Promise.all([isParentUnlocked(), getFamilySession()]);
+  return NextResponse.json({
+    unlocked,
+    familyName: family?.familyName ?? null,
+    email: family?.email ?? null,
+  });
 }

@@ -1,7 +1,5 @@
 import { Pool } from "pg";
 
-const noDb = !process.env.POSTGRES_URL;
-
 let pool: Pool | null = null;
 
 function getPool(): Pool {
@@ -9,12 +7,10 @@ function getPool(): Pool {
   return pool;
 }
 
-// Tagged template literal wrapper matching @vercel/postgres API shape
 export async function sql(
   strings: TemplateStringsArray,
   ...values: unknown[]
 ): Promise<{ rows: Record<string, unknown>[]; rowCount: number }> {
-  if (noDb) return { rows: [], rowCount: 0 };
   let query = "";
   strings.forEach((str, i) => {
     query += str;
@@ -26,6 +22,7 @@ export async function sql(
 
 export type Child = {
   id: number;
+  family_id?: number;
   name: string;
   display_color: string;
   avatar_emoji: string;
@@ -42,35 +39,45 @@ export type Transaction = {
   created_at: string;
 };
 
-export async function getSetting(key: string): Promise<string | null> {
-  const result = await sql`SELECT value FROM settings WHERE key = ${key}`;
+// familyId = undefined → global setting (e.g. fed_rate_cache)
+// familyId = number   → per-family setting
+export async function getSetting(key: string, familyId?: number): Promise<string | null> {
+  if (familyId !== undefined) {
+    const result = await sql`SELECT value FROM settings WHERE key = ${key} AND family_id = ${familyId}`;
+    return (result.rows[0]?.value as string) ?? null;
+  }
+  const result = await sql`SELECT value FROM settings WHERE key = ${key} AND family_id IS NULL`;
   return (result.rows[0]?.value as string) ?? null;
 }
 
-export async function setSetting(key: string, value: string): Promise<void> {
-  await sql`
-    INSERT INTO settings (key, value, updated_at)
-    VALUES (${key}, ${value}, NOW())
-    ON CONFLICT (key) DO UPDATE SET value = ${value}, updated_at = NOW()
-  `;
+export async function setSetting(key: string, value: string, familyId?: number): Promise<void> {
+  if (familyId !== undefined) {
+    await sql`
+      INSERT INTO settings (family_id, key, value, updated_at)
+      VALUES (${familyId}, ${key}, ${value}, NOW())
+      ON CONFLICT (family_id, key) DO UPDATE SET value = ${value}, updated_at = NOW()
+    `;
+  } else {
+    await sql`
+      INSERT INTO settings (family_id, key, value, updated_at)
+      VALUES (NULL, ${key}, ${value}, NOW())
+      ON CONFLICT (family_id, key) DO UPDATE SET value = ${value}, updated_at = NOW()
+    `;
+  }
 }
 
 export async function getChildBalance(childId: number): Promise<number> {
   const result = await sql`
-    SELECT
-      COALESCE(SUM(CASE WHEN type IN ('deposit', 'interest') THEN amount ELSE -amount END), 0) AS balance
-    FROM transactions
-    WHERE child_id = ${childId}
+    SELECT COALESCE(SUM(CASE WHEN type IN ('deposit', 'interest') THEN amount ELSE -amount END), 0) AS balance
+    FROM transactions WHERE child_id = ${childId}
   `;
   return parseFloat(result.rows[0].balance as string);
 }
 
 export async function getChildBalanceAsOf(childId: number, date: string): Promise<number> {
   const result = await sql`
-    SELECT
-      COALESCE(SUM(CASE WHEN type IN ('deposit', 'interest') THEN amount ELSE -amount END), 0) AS balance
-    FROM transactions
-    WHERE child_id = ${childId} AND transaction_date <= ${date}
+    SELECT COALESCE(SUM(CASE WHEN type IN ('deposit', 'interest') THEN amount ELSE -amount END), 0) AS balance
+    FROM transactions WHERE child_id = ${childId} AND transaction_date <= ${date}
   `;
   return parseFloat(result.rows[0].balance as string);
 }

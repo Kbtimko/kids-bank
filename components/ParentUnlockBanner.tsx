@@ -6,7 +6,7 @@ import { useParentAuth } from "./ParentAuthContext";
 import { PinModal } from "./PinModal";
 
 export function ParentUnlockBanner() {
-  const { unlocked, lock } = useParentAuth();
+  const { unlocked, familyName, lock, logout } = useParentAuth();
   const [showPin, setShowPin] = useState(false);
 
   return (
@@ -16,6 +16,9 @@ export function ParentUnlockBanner() {
           🏦 Kids Bank
         </Link>
         <div className="flex items-center gap-3">
+          {familyName && (
+            <span className="text-xs text-gray-400 hidden sm:block">{familyName}</span>
+          )}
           {unlocked ? (
             <>
               <Link
@@ -41,6 +44,13 @@ export function ParentUnlockBanner() {
               <span className="text-lg">🔒</span>
             </button>
           )}
+          <button
+            onClick={logout}
+            className="text-xs text-gray-400 hover:text-gray-600"
+            title="Sign out"
+          >
+            Sign out
+          </button>
         </div>
       </div>
 

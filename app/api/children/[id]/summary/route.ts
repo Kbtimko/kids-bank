@@ -1,53 +1,25 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-import { sql, getChildBalanceAsOf } from "@/lib/db";
-import { mockTransactions, getBalance, getBalanceAsOf, mockSettings } from "@/lib/mock-store";
+import { sql, getChildBalanceAsOf, getSetting } from "@/lib/db";
+import { getFamilySession } from "@/lib/auth";
 import { getFedRate } from "@/lib/fred";
 import { computeEffectiveRate, computeMonthlyInterest } from "@/lib/interest";
-
-const noDb = !process.env.POSTGRES_URL;
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const family = await getFamilySession();
+  if (!family) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
   const childId = parseInt(id);
   const now = new Date();
 
-  if (noDb) {
-    const balance = getBalance(childId);
-    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const allTxs = mockTransactions.filter((t) => t.child_id === childId);
-    const mtdTxs = allTxs.filter((t) => t.transaction_date >= monthStart);
-    const sumBy = (txs: typeof allTxs, type: string) =>
-      txs.filter((t) => t.type === type).reduce((s, t) => s + parseFloat(t.amount), 0);
+  // Verify child belongs to this family
+  const ownership = await sql`SELECT id FROM children WHERE id = ${childId} AND family_id = ${family.familyId}`;
+  if (!ownership.rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const multiplier = parseFloat(mockSettings.interest_multiplier);
-    const floor = parseFloat(mockSettings.interest_floor_percent);
-    const effectiveRate = computeEffectiveRate(4.33, multiplier, floor);
-    const nextMonthInterest = computeMonthlyInterest(balance, effectiveRate);
-
-    const chart = Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
-      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-      return {
-        month: d.toLocaleString("default", { month: "short", year: "2-digit" }),
-        balance: getBalanceAsOf(childId, lastDay.toISOString().split("T")[0]),
-      };
-    });
-
-    return NextResponse.json({
-      balance,
-      mtd: { deposits: sumBy(mtdTxs, "deposit"), withdrawals: sumBy(mtdTxs, "withdrawal"), interest: sumBy(mtdTxs, "interest") },
-      totals: { deposits: sumBy(allTxs, "deposit"), withdrawals: sumBy(allTxs, "withdrawal"), interest: sumBy(allTxs, "interest") },
-      effectiveRate,
-      nextMonthInterest,
-      chart,
-    });
-  }
-
-  // DB path
   const [balanceResult, mtdResult, totalsResult] = await Promise.all([
     sql`SELECT COALESCE(SUM(CASE WHEN type IN ('deposit','interest') THEN amount ELSE -amount END),0) AS balance FROM transactions WHERE child_id = ${childId}`,
     sql`SELECT
@@ -66,10 +38,9 @@ export async function GET(
   const mtd = mtdResult.rows[0] as Record<string, string>;
   const totals = totalsResult.rows[0] as Record<string, string>;
 
-  const [{ getSetting }] = await Promise.all([import("@/lib/db")]);
   const [multiplierStr, floorStr, fedResult] = await Promise.all([
-    getSetting("interest_multiplier"),
-    getSetting("interest_floor_percent"),
+    getSetting("interest_multiplier", family.familyId),
+    getSetting("interest_floor_percent", family.familyId),
     getFedRate(),
   ]);
   const multiplier = parseFloat(multiplierStr ?? "2");

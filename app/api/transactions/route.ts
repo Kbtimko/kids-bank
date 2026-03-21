@@ -1,15 +1,14 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { isParentUnlocked } from "@/lib/auth";
-import { addTransaction } from "@/lib/mock-store";
-
-const noDb = !process.env.POSTGRES_URL;
+import { isParentUnlocked, getFamilySession } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   if (!(await isParentUnlocked())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const family = await getFamilySession();
+  if (!family) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { child_id, type, amount, description, transaction_date } = await req.json();
 
@@ -24,13 +23,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Amount must be positive" }, { status: 400 });
   }
 
+  // Verify child belongs to this family
+  const ownership = await sql`SELECT id FROM children WHERE id = ${child_id} AND family_id = ${family.familyId}`;
+  if (!ownership.rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const date = transaction_date ?? new Date().toISOString().split("T")[0];
-
-  if (noDb) {
-    const tx = addTransaction(child_id, type, String(amt), description, date);
-    return NextResponse.json(tx, { status: 201 });
-  }
-
   const result = await sql`
     INSERT INTO transactions (child_id, type, amount, description, transaction_date)
     VALUES (${child_id}, ${type}, ${amt}, ${description}, ${date})
