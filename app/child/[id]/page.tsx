@@ -43,6 +43,22 @@ export default function ChildPage() {
   const [txPage, setTxPage] = useState<TxPage | null>(null);
   const [page, setPage] = useState(1);
   const [showEdit, setShowEdit] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [sharing, setSharing] = useState(false);
+
+  const createShareLink = async () => {
+    setSharing(true);
+    const res = await fetch("/api/share", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ childId: parseInt(id) }),
+    });
+    const data = await res.json();
+    const url = `${window.location.origin}/share/${data.token}`;
+    setShareUrl(url);
+    await navigator.clipboard.writeText(url).catch(() => {});
+    setSharing(false);
+  };
 
   const load = useCallback(async () => {
     const [childrenRes, summaryRes, txRes] = await Promise.all([
@@ -93,15 +109,24 @@ export default function ChildPage() {
           {/* Watermark */}
           <span className="absolute right-4 bottom-3 text-8xl opacity-10 select-none font-bold">$</span>
 
-          {/* Edit button */}
-          {unlocked && (
+          {/* Action buttons */}
+          <div className="absolute top-4 right-4 flex gap-2">
             <button
-              onClick={() => setShowEdit((v) => !v)}
-              className="absolute top-4 right-4 flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-3 py-1.5 rounded-full backdrop-blur-sm transition"
+              onClick={createShareLink}
+              disabled={sharing}
+              className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-3 py-1.5 rounded-full backdrop-blur-sm transition"
             >
-              ✏️ Edit
+              {sharing ? "…" : "🔗 Share"}
             </button>
-          )}
+            {unlocked && (
+              <button
+                onClick={() => setShowEdit((v) => !v)}
+                className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-3 py-1.5 rounded-full backdrop-blur-sm transition"
+              >
+                ✏️ Edit
+              </button>
+            )}
+          </div>
 
           <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">
             {child.name}&apos;s Balance
@@ -115,6 +140,17 @@ export default function ChildPage() {
             </span>
           </div>
         </div>
+
+        {/* Share link confirmation */}
+        {shareUrl && (
+          <div className="bg-white rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between gap-3">
+            <p className="text-xs text-gray-500 truncate">{shareUrl}</p>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => navigator.clipboard.writeText(shareUrl)} className="text-xs text-indigo-600 font-semibold">Copy</button>
+              <button onClick={() => setShareUrl("")} className="text-xs text-gray-400">✕</button>
+            </div>
+          </div>
+        )}
 
         {/* Edit / QuickAdd panel */}
         {unlocked && showEdit && (

@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏦 Kids Bank
 
-## Getting Started
+A family savings tracker with real compound interest, built with Next.js. Each child gets their own account with a balance, transaction history, and monthly interest tied to the Federal Reserve rate.
 
-First, run the development server:
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Kbtimko/kids-bank&env=PARENT_JWT_SECRET,FRED_API_KEY&envDescription=See%20SETUP.md%20for%20instructions&project-name=kids-bank&repository-name=kids-bank)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+- 👨‍👩‍👧‍👦 Multiple child accounts with emoji + color customization
+- 💰 Deposits, withdrawals, and automatic monthly interest
+- 📈 Interest tied to the live Fed Funds Rate (via FRED API) with a configurable multiplier and floor
+- 🔒 PIN-protected parent mode
+- 🔗 Shareable read-only snapshots for blog posts or sharing highlights
+- 📊 12-month balance chart
+
+## Quick Start
+
+Click **Deploy with Vercel** above, then follow [SETUP.md](SETUP.md) to:
+1. Add a Postgres (Neon) database
+2. Set your `PARENT_JWT_SECRET` and `FRED_API_KEY`
+3. Run the migration + seed scripts
+4. Set your PIN and add your kids
+
+## Interest Rate Formula
+
+```
+effective_rate = MAX(floor, fed_rate × multiplier)
+monthly_interest = balance × (effective_rate / 100 / 12)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Defaults: 2× Fed rate, 5% floor. Both adjustable in Admin → Settings.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js 14](https://nextjs.org) (App Router)
+- [Vercel Postgres / Neon](https://neon.tech)
+- [Tailwind CSS](https://tailwindcss.com)
+- [Recharts](https://recharts.org)
+- [FRED API](https://fred.stlouisfed.org) for live Fed rate
