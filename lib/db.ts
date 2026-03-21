@@ -1,11 +1,28 @@
-import { sql as vercelSql } from "@vercel/postgres";
+import { Pool } from "pg";
 
 const noDb = !process.env.POSTGRES_URL;
 
-// When no DB is configured (local preview), return empty results instead of crashing
-const mockSql = (() => Promise.resolve({ rows: [] })) as unknown as typeof vercelSql;
+let pool: Pool | null = null;
 
-export const sql = noDb ? mockSql : vercelSql;
+function getPool(): Pool {
+  if (!pool) pool = new Pool({ connectionString: process.env.POSTGRES_URL });
+  return pool;
+}
+
+// Tagged template literal wrapper matching @vercel/postgres API shape
+export async function sql(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+): Promise<{ rows: Record<string, unknown>[]; rowCount: number }> {
+  if (noDb) return { rows: [], rowCount: 0 };
+  let query = "";
+  strings.forEach((str, i) => {
+    query += str;
+    if (i < values.length) query += `$${i + 1}`;
+  });
+  const result = await getPool().query(query, values as unknown[]);
+  return { rows: result.rows, rowCount: result.rowCount ?? 0 };
+}
 
 export type Child = {
   id: number;
@@ -27,7 +44,7 @@ export type Transaction = {
 
 export async function getSetting(key: string): Promise<string | null> {
   const result = await sql`SELECT value FROM settings WHERE key = ${key}`;
-  return result.rows[0]?.value ?? null;
+  return (result.rows[0]?.value as string) ?? null;
 }
 
 export async function setSetting(key: string, value: string): Promise<void> {
@@ -45,7 +62,7 @@ export async function getChildBalance(childId: number): Promise<number> {
     FROM transactions
     WHERE child_id = ${childId}
   `;
-  return parseFloat(result.rows[0].balance);
+  return parseFloat(result.rows[0].balance as string);
 }
 
 export async function getChildBalanceAsOf(childId: number, date: string): Promise<number> {
@@ -55,5 +72,5 @@ export async function getChildBalanceAsOf(childId: number, date: string): Promis
     FROM transactions
     WHERE child_id = ${childId} AND transaction_date <= ${date}
   `;
-  return parseFloat(result.rows[0].balance);
+  return parseFloat(result.rows[0].balance as string);
 }
