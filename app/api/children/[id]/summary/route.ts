@@ -62,9 +62,9 @@ export async function GET(
     FROM transactions WHERE child_id = ${childId}`,
   ]);
 
-  const balance = parseFloat(balanceResult.rows[0].balance);
-  const mtd = mtdResult.rows[0];
-  const totals = totalsResult.rows[0];
+  const balance = parseFloat(balanceResult.rows[0].balance as string);
+  const mtd = mtdResult.rows[0] as Record<string, string>;
+  const totals = totalsResult.rows[0] as Record<string, string>;
 
   const [{ getSetting }] = await Promise.all([import("@/lib/db")]);
   const [multiplierStr, floorStr, fedResult] = await Promise.all([

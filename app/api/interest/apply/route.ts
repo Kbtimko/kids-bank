@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const previews: { childId: number; name: string; balance: number; interest: number }[] = [];
 
-  for (const child of children.rows) {
+  for (const child of children.rows as { id: number; name: string }[]) {
     // Idempotency check: has interest already been applied this month?
     const existing = await sql`
       SELECT id FROM transactions

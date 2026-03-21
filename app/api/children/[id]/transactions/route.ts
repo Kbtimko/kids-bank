@@ -24,7 +24,7 @@ export async function GET(
     sql`SELECT COUNT(*) FROM transactions WHERE child_id = ${childId}`,
   ]);
 
-  const total = parseInt(countResult.rows[0].count);
+  const total = parseInt(countResult.rows[0].count as string);
   return NextResponse.json({
     transactions: rows.rows,
     total,

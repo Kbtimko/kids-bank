@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
 
   const tokenRow = await sql`SELECT child_id FROM share_tokens WHERE token = ${token}`;
   if (!tokenRow.rows[0]) return NextResponse.json({ error: "Invalid link" }, { status: 404 });
-  childId = tokenRow.rows[0].child_id;
+  childId = tokenRow.rows[0].child_id as number;
 
   const [childRow, balanceRow, totalsRow] = await Promise.all([
     sql`SELECT name, avatar_emoji, display_color FROM children WHERE id = ${childId}`,
@@ -79,9 +79,9 @@ export async function GET(req: NextRequest) {
     FROM transactions WHERE child_id = ${childId}`,
   ]);
 
-  const child = childRow.rows[0];
-  const balance = parseFloat(balanceRow.rows[0].balance);
-  const totals = totalsRow.rows[0];
+  const child = childRow.rows[0] as Record<string, string>;
+  const balance = parseFloat(balanceRow.rows[0].balance as string);
+  const totals = totalsRow.rows[0] as Record<string, string>;
 
   const [multiplierStr, floorStr, fedResult] = await Promise.all([
     getSetting("interest_multiplier"),
