@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const family = await getFamilySession();
   if (!family) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { child_id, type, amount, description, transaction_date } = await req.json();
+  const { child_id, type, amount, description, transaction_date, category, is_need, notes, goal_id } = await req.json();
 
   if (!child_id || !type || !amount || !description) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
 
   const date = transaction_date ?? new Date().toISOString().split("T")[0];
   const result = await sql`
-    INSERT INTO transactions (child_id, type, amount, description, transaction_date)
-    VALUES (${child_id}, ${type}, ${amt}, ${description}, ${date})
+    INSERT INTO transactions (child_id, type, amount, description, transaction_date, category, is_need, notes, goal_id)
+    VALUES (${child_id}, ${type}, ${amt}, ${description}, ${date}, ${category ?? null}, ${is_need ?? null}, ${notes ?? null}, ${goal_id ?? null})
     RETURNING *
   `;
   return NextResponse.json(result.rows[0], { status: 201 });

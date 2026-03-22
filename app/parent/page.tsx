@@ -45,7 +45,7 @@ function AdminPanel() {
   const [interestPreview, setInterestPreview] = useState<InterestPreview | null>(null);
   const [overrideRate, setOverrideRate] = useState("");
   const [applyMsg, setApplyMsg] = useState("");
-  const [activeSection, setActiveSection] = useState<"interest" | "add-child" | "settings" | "pin">("interest");
+  const [activeSection, setActiveSection] = useState<"interest" | "add-child" | "settings" | "pin" | "recurring" | "tax">("interest");
 
   const load = useCallback(async () => {
     const [ch, st, fr] = await Promise.all([
@@ -118,6 +118,8 @@ function AdminPanel() {
             { key: "add-child", label: "Add Child" },
             { key: "settings", label: "Settings" },
             { key: "pin", label: "Change PIN" },
+            { key: "recurring", label: "Allowance" },
+            { key: "tax", label: "Tax Summary" },
           ] as const
         ).map((s) => (
           <button
@@ -260,6 +262,12 @@ function AdminPanel() {
       {/* Change PIN section */}
       {activeSection === "pin" && <ChangePinForm />}
 
+      {/* Recurring allowance section */}
+      {activeSection === "recurring" && <RecurringPanel children_={children} onSaved={load} />}
+
+      {/* Tax summary section */}
+      {activeSection === "tax" && <TaxPanel children_={children} />}
+
       {/* Children overview */}
       <div className="mt-6">
         <h2 className="text-sm font-semibold text-gray-500 mb-3">Accounts ({children.length})</h2>
@@ -291,7 +299,7 @@ function AddChildForm({ onAdded }: { onAdded: () => void }) {
   const [color, setColor] = useState("#4F46E5");
   const [saving, setSaving] = useState(false);
 
-  const EMOJIS = ["⭐", "🚀", "🦋", "🐸", "🦁", "🐼", "🌈", "🎯", "🏆", "💎"];
+  const EMOJIS = ["⭐", "🚀", "🦋", "🐸", "🦁", "🐼", "🌈", "🎯", "🏆", "💎", "🧸", "🚛", "💩", "🐶", "🐱", "🦄", "🐙", "🦊", "🐻", "🎮"];
   const COLORS = [
     "#4F46E5", "#059669", "#DC2626", "#D97706",
     "#7C3AED", "#0891B2", "#DB2777", "#65A30D",
@@ -425,6 +433,156 @@ function SettingsForm({
         {saving ? "Saving…" : "Save Settings"}
       </button>
     </form>
+  );
+}
+
+function RecurringPanel({ children_, onSaved }: { children_: Child[]; onSaved: () => void }) {
+  const [selectedChild, setSelectedChild] = useState<number | null>(children_[0]?.id ?? null);
+  const [rules, setRules] = useState<Array<{id: number; type: string; amount: string; description: string; frequency: string; next_due_date: string; is_active: boolean}>>([]);
+  const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [frequency, setFrequency] = useState<"weekly" | "biweekly" | "monthly">("monthly");
+  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (selectedChild) {
+      fetch(`/api/children/${selectedChild}/recurring`).then((r) => r.json()).then((d) => setRules(Array.isArray(d) ? d : []));
+    }
+  }, [selectedChild]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    await fetch(`/api/children/${selectedChild}/recurring`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, amount: parseFloat(amount), description, frequency, start_date: startDate }),
+    });
+    setAmount(""); setDescription("");
+    const updated = await fetch(`/api/children/${selectedChild}/recurring`).then((r) => r.json());
+    setRules(Array.isArray(updated) ? updated : []);
+    setSaving(false);
+    onSaved();
+  };
+
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-sm">
+      <h2 className="font-semibold text-gray-700 mb-4">Recurring Allowance</h2>
+      {children_.length > 1 && (
+        <select value={selectedChild ?? ""} onChange={(e) => setSelectedChild(parseInt(e.target.value))}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mb-4 focus:outline-none">
+          {children_.map((c) => <option key={c.id} value={c.id}>{c.avatar_emoji} {c.name}</option>)}
+        </select>
+      )}
+      {rules.length > 0 && (
+        <div className="mb-4 space-y-2">
+          {rules.map((r) => {
+            const isDue = new Date(r.next_due_date) <= new Date();
+            return (
+              <div key={r.id} className="flex items-center justify-between border border-gray-100 rounded-xl px-3 py-2">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">{r.description}</p>
+                  <p className="text-xs text-gray-400">{r.frequency} · {r.type === "deposit" ? "+" : "-"}${r.amount}</p>
+                </div>
+                <div className="flex gap-2 items-center">
+                  {isDue && (
+                    <button onClick={async () => {
+                      await fetch(`/api/recurring/${r.id}/apply`, { method: "POST" });
+                      const updated = await fetch(`/api/children/${selectedChild}/recurring`).then((res) => res.json());
+                      setRules(Array.isArray(updated) ? updated : []);
+                      onSaved();
+                    }} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg font-semibold">Apply</button>
+                  )}
+                  <span className={`text-xs ${isDue ? "text-orange-500 font-semibold" : "text-gray-400"}`}>Due {r.next_due_date}</span>
+                  <button onClick={async () => {
+                    await fetch(`/api/recurring/${r.id}`, { method: "DELETE" });
+                    setRules((prev) => prev.filter((x) => x.id !== r.id));
+                  }} className="text-xs text-red-400 hover:text-red-600">✕</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <form onSubmit={submit} className="border-t border-gray-100 pt-4 mt-2 space-y-2">
+        <p className="text-xs font-semibold text-gray-500 mb-2">Add New Rule</p>
+        <div className="flex gap-2">
+          {(["deposit", "withdrawal"] as const).map((t) => (
+            <button key={t} type="button" onClick={() => setType(t)}
+              className={`flex-1 py-2 rounded-xl text-sm font-semibold ${type === t ? (t === "deposit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700") : "bg-gray-100 text-gray-400"}`}>
+              {t === "deposit" ? "Deposit" : "Withdrawal"}
+            </button>
+          ))}
+        </div>
+        <input type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} min="0.01" step="0.01" required
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <input type="text" placeholder="Description (e.g. Weekly allowance)" value={description} onChange={(e) => setDescription(e.target.value)} required
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <select value={frequency} onChange={(e) => setFrequency(e.target.value as "weekly" | "biweekly" | "monthly")}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none">
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Every 2 weeks</option>
+          <option value="monthly">Monthly</option>
+        </select>
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
+        <button type="submit" disabled={saving} className="w-full bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50">
+          {saving ? "Adding…" : "Add Rule"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function TaxPanel({ children_ }: { children_: Child[] }) {
+  const [selectedChild, setSelectedChild] = useState<number | null>(children_[0]?.id ?? null);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [summary, setSummary] = useState<{ deposits: number; withdrawals: number; interest: number; net_savings: number; by_month: Record<string, string>[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    if (!selectedChild) return;
+    setLoading(true);
+    const res = await fetch(`/api/children/${selectedChild}/tax-summary?year=${year}`);
+    const data = await res.json();
+    setSummary(data);
+    setLoading(false);
+  };
+
+  const download = () => {
+    if (!selectedChild) return;
+    window.open(`/api/children/${selectedChild}/tax-summary?year=${year}&format=csv`);
+  };
+
+  const usdFmt = (v: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
+
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-sm">
+      <h2 className="font-semibold text-gray-700 mb-4">Year-End Summary</h2>
+      {children_.length > 1 && (
+        <select value={selectedChild ?? ""} onChange={(e) => setSelectedChild(parseInt(e.target.value))}
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mb-3 focus:outline-none">
+          {children_.map((c) => <option key={c.id} value={c.id}>{c.avatar_emoji} {c.name}</option>)}
+        </select>
+      )}
+      <div className="flex gap-2 mb-4">
+        <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value))} min="2020" max="2099"
+          className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
+        <button onClick={load} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold">{loading ? "…" : "Load"}</button>
+      </div>
+      {summary && (
+        <>
+          <div className="space-y-2 mb-4">
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Total Deposited</span><span className="font-semibold text-green-600">{usdFmt(summary.deposits)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Interest Earned</span><span className="font-semibold text-amber-600">{usdFmt(summary.interest)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Total Withdrawn</span><span className="font-semibold text-red-500">{usdFmt(summary.withdrawals)}</span></div>
+            <div className="flex justify-between text-sm border-t border-gray-100 pt-2 mt-2"><span className="font-semibold text-gray-700">Net Savings</span><span className="font-bold text-indigo-600">{usdFmt(summary.net_savings)}</span></div>
+          </div>
+          <button onClick={download} className="w-full border border-indigo-200 text-indigo-600 py-2.5 rounded-xl text-sm font-semibold">⬇️ Download CSV</button>
+        </>
+      )}
+    </div>
   );
 }
 

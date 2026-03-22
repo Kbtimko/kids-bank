@@ -37,6 +37,56 @@ export type Transaction = {
   description: string;
   transaction_date: string;
   created_at: string;
+  category: string | null;
+  is_need: boolean | null;
+  notes: string | null;
+  goal_id: number | null;
+};
+
+export type Goal = {
+  id: number;
+  child_id: number;
+  name: string;
+  target_amount: string;
+  emoji: string;
+  is_completed: boolean;
+  current_amount?: string;
+  created_at: string;
+};
+
+export type Chore = {
+  id: number;
+  child_id: number;
+  name: string;
+  reward_amount: string;
+  completed_at: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type RecurringTransaction = {
+  id: number;
+  child_id: number;
+  type: "deposit" | "withdrawal";
+  amount: string;
+  description: string;
+  frequency: "weekly" | "biweekly" | "monthly";
+  next_due_date: string;
+  category: string | null;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type WithdrawalRequest = {
+  id: number;
+  child_id: number;
+  amount: string;
+  description: string;
+  want_need: "want" | "need" | null;
+  status: "pending" | "approved" | "denied";
+  parent_note: string | null;
+  requested_at: string;
+  resolved_at: string | null;
 };
 
 // familyId = undefined → global setting (e.g. fed_rate_cache)

@@ -36,6 +36,10 @@ export function addTransaction(
     description,
     transaction_date,
     created_at: new Date().toISOString(),
+    category: null,
+    is_need: null,
+    notes: null,
+    goal_id: null,
   };
   mockTransactions.push(tx);
   return tx;
