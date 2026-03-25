@@ -494,7 +494,7 @@ function RecurringPanel({ children_, onSaved }: { children_: Child[]; onSaved: (
                       onSaved();
                     }} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg font-semibold">Apply</button>
                   )}
-                  <span className={`text-xs ${isDue ? "text-orange-500 font-semibold" : "text-gray-400"}`}>Due {r.next_due_date}</span>
+                  <span className={`text-xs ${isDue ? "text-orange-500 font-semibold" : "text-gray-400"}`}>Due {new Date(r.next_due_date).toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric", timeZone: "UTC" })}</span>
                   <button onClick={async () => {
                     await fetch(`/api/recurring/${r.id}`, { method: "DELETE" });
                     setRules((prev) => prev.filter((x) => x.id !== r.id));

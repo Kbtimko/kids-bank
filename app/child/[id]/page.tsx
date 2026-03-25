@@ -304,7 +304,7 @@ export default function ChildPage() {
                             <button onClick={async () => { await fetch(`/api/recurring/${r.id}/apply`, { method: "POST" }); load(); }}
                               className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg font-semibold">Apply</button>
                           )}
-                          <span className="text-xs text-gray-400">Due {r.next_due_date}</span>
+                          <span className="text-xs text-gray-400">Due {new Date(r.next_due_date).toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric", timeZone: "UTC" })}</span>
                         </div>
                       </div>
                     );
