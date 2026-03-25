@@ -23,8 +23,9 @@ const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const datePart = dateStr.split("T")[0];
+  const d = new Date(datePart + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" });
 }
 
 export function TransactionList({ transactions, onDelete }: Props) {
