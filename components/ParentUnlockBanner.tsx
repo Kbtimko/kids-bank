@@ -44,6 +44,9 @@ export function ParentUnlockBanner() {
               <span className="text-lg">🔒</span>
             </button>
           )}
+          <Link href="/faq" className="text-xs text-gray-400 hover:text-gray-600">
+            Help
+          </Link>
           <button
             onClick={logout}
             className="text-xs text-gray-400 hover:text-gray-600"
