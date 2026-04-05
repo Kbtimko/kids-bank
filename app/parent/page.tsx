@@ -46,6 +46,7 @@ function AdminPanel() {
   const [overrideRate, setOverrideRate] = useState("");
   const [applyMsg, setApplyMsg] = useState("");
   const [activeSection, setActiveSection] = useState<"interest" | "add-child" | "settings" | "pin" | "recurring" | "tax">("interest");
+  const [showOverride, setShowOverride] = useState(false);
 
   const load = useCallback(async () => {
     const [ch, st, fr] = await Promise.all([
@@ -61,6 +62,11 @@ function AdminPanel() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (activeSection === "interest") fetchInterestPreview("");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection]);
 
   const fetchInterestPreview = async (customRate?: string) => {
     const res = await fetch("/api/interest/apply", {
@@ -139,69 +145,49 @@ function AdminPanel() {
       {/* Interest section */}
       {activeSection === "interest" && (
         <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <h2 className="font-semibold text-gray-700 mb-4">Apply Monthly Interest</h2>
+          <h2 className="font-semibold text-gray-700 mb-1">Apply Monthly Interest</h2>
 
-          {/* Fed rate info */}
-          {fedRate && (
-            <div className="bg-gray-50 rounded-xl p-3 mb-4 text-sm">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-gray-500 text-xs">Fed Funds Rate (FRED)</p>
-                  <p className="font-bold text-gray-800 text-lg">{fedRate.rate.toFixed(2)}%</p>
-                  <p className="text-gray-400 text-xs">
-                    {fedRate.source === "FRED" ? "Live" : `Cached`} · {fedRate.cachedDate}
-                  </p>
-                </div>
-                <button
-                  onClick={refreshFedRate}
-                  className="text-xs text-indigo-500 border border-indigo-200 px-3 py-1.5 rounded-lg"
-                >
-                  Refresh
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Rate formula */}
-          <div className="bg-indigo-50 rounded-xl p-3 mb-4 text-sm text-indigo-700">
-            <p>
-              Computed rate: max({fedRate?.rate.toFixed(2)}% × {settings.interest_multiplier},{" "}
-              {settings.interest_floor_percent}% floor) ={" "}
-              <strong>
+          {/* Default rate — prominent */}
+          <div className="bg-indigo-50 rounded-xl p-4 mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-indigo-500 mb-0.5">Default rate (Fed × {settings.interest_multiplier}, min {settings.interest_floor_percent}%)</p>
+              <p className="text-2xl font-bold text-indigo-700">
                 {Math.max(
                   (fedRate?.rate ?? 4.33) * parseFloat(settings.interest_multiplier),
                   parseFloat(settings.interest_floor_percent)
-                ).toFixed(2)}
-                % annual
-              </strong>
-            </p>
+                ).toFixed(2)}% <span className="text-sm font-normal">annual</span>
+              </p>
+              {fedRate && (
+                <p className="text-xs text-indigo-400 mt-0.5">Fed rate {fedRate.rate.toFixed(2)}% · {fedRate.cachedDate}</p>
+              )}
+            </div>
+            <button onClick={refreshFedRate} className="text-xs text-indigo-500 border border-indigo-200 px-3 py-1.5 rounded-lg">
+              Refresh
+            </button>
           </div>
 
-          {/* Override rate */}
-          <div className="mb-4">
-            <label className="text-xs text-gray-500 block mb-1">
-              Override rate (optional — leave blank to use computed)
-            </label>
-            <div className="flex gap-2">
+          {/* Override — collapsed by default */}
+          <button
+            onClick={() => { setShowOverride((v) => !v); setOverrideRate(""); }}
+            className="text-xs text-gray-400 hover:text-gray-600 mb-3 underline"
+          >
+            {showOverride ? "Use default rate" : "Use a different rate"}
+          </button>
+
+          {showOverride && (
+            <div className="flex gap-2 mb-4">
               <input
                 type="number"
                 placeholder="e.g. 8.5"
                 value={overrideRate}
-                onChange={(e) => setOverrideRate(e.target.value)}
+                onChange={(e) => { setOverrideRate(e.target.value); fetchInterestPreview(e.target.value); }}
                 step="0.01"
                 min="0"
                 className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
               />
               <span className="text-sm text-gray-500 self-center">%</span>
             </div>
-          </div>
-
-          <button
-            onClick={() => fetchInterestPreview(overrideRate)}
-            className="w-full bg-indigo-50 text-indigo-700 py-2.5 rounded-xl text-sm font-semibold mb-3"
-          >
-            Preview Interest
-          </button>
+          )}
 
           {applyMsg && (
             <p className={`text-sm text-center mb-3 ${applyMsg.startsWith("✓") ? "text-green-600" : "text-red-500"}`}>
@@ -209,32 +195,33 @@ function AdminPanel() {
             </p>
           )}
 
+          {/* Preview table */}
           {interestPreview && (
             <div className="border border-gray-100 rounded-xl p-3 mb-4">
               <p className="text-xs text-gray-400 mb-2">
-                Using {interestPreview.effectiveRate.toFixed(2)}% annual · {interestPreview.month}
+                {interestPreview.month} · {interestPreview.effectiveRate.toFixed(2)}% annual
               </p>
               {interestPreview.preview.map((p) => (
                 <div key={p.childId} className="flex justify-between py-1.5 border-b border-gray-50 last:border-0">
                   <div>
                     <p className="text-sm font-medium text-gray-700">{p.name}</p>
-                    <p className="text-xs text-gray-400">
-                      Balance: {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(p.balance)}
-                    </p>
+                    <p className="text-xs text-gray-400">Balance: {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(p.balance)}</p>
                   </div>
                   <p className="text-sm font-bold text-blue-600">
                     +{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(p.interest)}
                   </p>
                 </div>
               ))}
-              <button
-                onClick={applyInterest}
-                className="w-full mt-3 bg-green-600 text-white py-2.5 rounded-xl text-sm font-semibold"
-              >
-                Confirm & Apply
-              </button>
             </div>
           )}
+
+          <button
+            onClick={applyInterest}
+            disabled={!interestPreview}
+            className="w-full bg-green-600 text-white py-3 rounded-xl text-sm font-semibold disabled:opacity-40"
+          >
+            Confirm & Apply Interest
+          </button>
         </div>
       )}
 
